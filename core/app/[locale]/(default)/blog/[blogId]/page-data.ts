@@ -1,56 +1,28 @@
 import { cache } from 'react';
 
-import { client } from '~/client';
-import { graphql } from '~/client/graphql';
-import { revalidate } from '~/client/revalidate-target';
+import { getWordPressPost } from '~/lib/wordpress/data-fetcher';
 
-import { SharingLinksFragment } from './_components/sharing-links';
+export const getBlogPageData = cache(
+  async ({ entityId, locale }: { entityId: string; locale: string | undefined }) => {
+    console.log('entityId', entityId);
 
-const BlogPageQuery = graphql(
-  `
-    query BlogPageQuery($entityId: Int!) {
-      site {
-        content {
-          blog {
-            post(entityId: $entityId) {
-              author
-              htmlBody
-              name
-              publishedDate {
-                utc
-              }
-              tags
-              thumbnailImage {
-                altText
-                url: urlTemplate(lossy: true)
-              }
-              seo {
-                pageTitle
-                metaDescription
-                metaKeywords
-              }
-            }
-          }
-        }
-        ...SharingLinksFragment
-      }
+    const blogPost = await getWordPressPost({ blogId: entityId.toString(), locale });
+
+    if (!blogPost) {
+      return null;
     }
-  `,
-  [SharingLinksFragment],
+
+    return {
+      content: {
+        blog: {
+          post: { ...blogPost, entityId },
+        },
+      },
+      settings: {
+        url: {
+          vanityUrl: blogPost.vanityUrl,
+        },
+      },
+    };
+  },
 );
-
-export const getBlogPageData = cache(async ({ entityId }: { entityId: number }) => {
-  const response = await client.fetch({
-    document: BlogPageQuery,
-    variables: { entityId },
-    fetchOptions: { next: { revalidate } },
-  });
-
-  const { blog } = response.data.site.content;
-
-  if (!blog?.post) {
-    return null;
-  }
-
-  return response.data.site;
-});

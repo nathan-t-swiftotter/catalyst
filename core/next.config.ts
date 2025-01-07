@@ -24,6 +24,14 @@ const LocaleQuery = graphql(`
 
 export default async (): Promise<NextConfig> => {
   let nextConfig: NextConfig = {
+    images: {
+      remotePatterns: [
+        {
+          protocol: 'https',
+          hostname: 'wmu.com',
+        },
+      ],
+    },
     reactStrictMode: true,
     experimental: {
       optimizePackageImports: ['@icons-pack/react-simple-icons'],

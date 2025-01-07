@@ -12,13 +12,14 @@ import { getBlogPageData } from './page-data';
 interface Props {
   params: Promise<{
     blogId: string;
+    locale: string | undefined;
   }>;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { blogId } = await params;
+  const { blogId, locale } = await params;
 
-  const data = await getBlogPageData({ entityId: Number(blogId) });
+  const data = await getBlogPageData({ entityId: blogId, locale });
   const blogPost = data?.content.blog?.post;
 
   if (!blogPost) {
@@ -35,11 +36,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function Blog({ params }: Props) {
-  const { blogId } = await params;
+  const { blogId, locale } = await params;
 
   const format = await getFormatter();
 
-  const data = await getBlogPageData({ entityId: Number(blogId) });
+  const data = await getBlogPageData({ entityId: blogId, locale });
   const blogPost = data?.content.blog?.post;
 
   if (!blogPost) {
@@ -81,11 +82,11 @@ export default async function Blog({ params }: Props) {
         </div>
       )}
 
-      <div className="mb-10 text-base" dangerouslySetInnerHTML={{ __html: blogPost.htmlBody }} />
+      <div className="mb-10 text-base space-y-4" dangerouslySetInnerHTML={{ __html: blogPost.htmlBody }} />
       <div className="mb-10 flex">
-        {blogPost.tags.map((tag) => (
-          <Link className="me-3 block cursor-pointer" href={`/blog/tag/${tag}`} key={tag}>
-            <Tag content={tag} />
+        {blogPost.tags.map((tag: { name: string, href: string }) => (
+          <Link className="me-3 block cursor-pointer" href={tag.href} key={tag.name}>
+            <Tag content={tag.name} />
           </Link>
         ))}
       </div>
