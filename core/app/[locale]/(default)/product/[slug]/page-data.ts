@@ -1,11 +1,11 @@
 import { cache } from 'react';
 
-import { getSessionCustomerId } from '~/auth';
+import { getSessionCustomerAccessToken } from '~/auth';
 import { client } from '~/client';
 import { ProductItemFragment } from '~/client/fragments/product-item';
 import { graphql, VariablesOf } from '~/client/graphql';
 import { revalidate } from '~/client/revalidate-target';
-import { BreadcrumbsFragment } from '~/components/breadcrumbs';
+import { BreadcrumbsFragment } from '~/components/breadcrumbs/fragment';
 
 import { DescriptionFragment } from './_components/description';
 import { DetailsFragment } from './_components/details';
@@ -33,7 +33,7 @@ const ProductPageQuery = graphql(
           entityId
           name
           defaultImage {
-            url: urlTemplate
+            url: urlTemplate(lossy: true)
             altText
           }
           categories(first: 1) {
@@ -62,16 +62,16 @@ const ProductPageQuery = graphql(
   ],
 );
 
-type ProductPageQueryVariables = VariablesOf<typeof ProductPageQuery>;
+type Variables = VariablesOf<typeof ProductPageQuery>;
 
-export const getProduct = cache(async (variables: ProductPageQueryVariables) => {
-  const customerId = await getSessionCustomerId();
+export const getProduct = cache(async (variables: Variables) => {
+  const customerAccessToken = await getSessionCustomerAccessToken();
 
   const { data } = await client.fetch({
     document: ProductPageQuery,
     variables,
-    customerId,
-    fetchOptions: customerId ? { cache: 'no-store' } : { next: { revalidate } },
+    customerAccessToken,
+    fetchOptions: customerAccessToken ? { cache: 'no-store' } : { next: { revalidate } },
   });
 
   return data.site.product;

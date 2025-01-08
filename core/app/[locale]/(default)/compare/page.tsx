@@ -1,29 +1,23 @@
 import { removeEdgesAndNodes } from '@bigcommerce/catalyst-client';
-import { NextIntlClientProvider } from 'next-intl';
-import { getFormatter, getMessages, getTranslations } from 'next-intl/server';
+import { getFormatter, getTranslations } from 'next-intl/server';
 import * as z from 'zod';
 
-import { getSessionCustomerId } from '~/auth';
+import { getSessionCustomerAccessToken } from '~/auth';
 import { client } from '~/client';
+import { PricingFragment } from '~/client/fragments/pricing';
 import { graphql } from '~/client/graphql';
 import { revalidate } from '~/client/revalidate-target';
-import { BcImage } from '~/components/bc-image';
+import { Image } from '~/components/image';
 import { Link } from '~/components/link';
-import { PricingFragment } from '~/components/product-card';
 import { SearchForm } from '~/components/search-form';
 import { Button } from '~/components/ui/button';
 import { Rating } from '~/components/ui/rating';
-import { LocaleType } from '~/i18n';
 import { cn } from '~/lib/utils';
 
 import { AddToCart } from './_components/add-to-cart';
 import { AddToCartFragment } from './_components/add-to-cart/fragment';
 
 const MAX_COMPARE_LIMIT = 10;
-
-export const metadata = {
-  title: 'Compare',
-};
 
 const CompareParamsSchema = z.object({
   ids: z
@@ -44,7 +38,7 @@ const CompareParamsSchema = z.object({
 
 const ComparePageQuery = graphql(
   `
-    query ComparePage($entityIds: [Int!], $first: Int) {
+    query ComparePageQuery($entityIds: [Int!], $first: Int) {
       site {
         products(entityIds: $entityIds, first: $first) {
           edges {
@@ -57,7 +51,7 @@ const ComparePageQuery = graphql(
               }
               defaultImage {
                 altText
-                url: urlTemplate
+                url: urlTemplate(lossy: true)
               }
               reviewSummary {
                 numberOfReviews
@@ -87,21 +81,26 @@ const ComparePageQuery = graphql(
   [AddToCartFragment, PricingFragment],
 );
 
-export default async function Compare({
-  params: { locale },
-  searchParams,
-}: {
-  searchParams: Record<string, string | string[] | undefined>;
-  params: { locale: LocaleType };
-}) {
-  const customerId = await getSessionCustomerId();
-  const t = await getTranslations({ locale, namespace: 'Compare' });
-  const messages = await getMessages({ locale });
+export async function generateMetadata() {
+  const t = await getTranslations('Compare');
+
+  return {
+    title: t('title'),
+  };
+}
+
+interface Props {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+export default async function Compare(props: Props) {
+  const searchParams = await props.searchParams;
+  const t = await getTranslations('Compare');
+  const format = await getFormatter();
+  const customerAccessToken = await getSessionCustomerAccessToken();
 
   const parsed = CompareParamsSchema.parse(searchParams);
   const productIds = parsed.ids?.filter((id) => !Number.isNaN(id));
-
-  const format = await getFormatter();
 
   const { data } = await client.fetch({
     document: ComparePageQuery,
@@ -109,8 +108,8 @@ export default async function Compare({
       entityIds: productIds ?? [],
       first: productIds?.length ? MAX_COMPARE_LIMIT : 0,
     },
-    customerId,
-    fetchOptions: customerId ? { cache: 'no-store' } : { next: { revalidate } },
+    customerAccessToken,
+    fetchOptions: customerAccessToken ? { cache: 'no-store' } : { next: { revalidate } },
   });
 
   const products = removeEdgesAndNodes(data.site.products).map((product) => ({
@@ -122,11 +121,9 @@ export default async function Compare({
     return (
       <div className="flex w-full justify-center py-16 align-middle">
         <div className="flex max-w-2xl flex-col gap-8 pb-8">
-          <h1 className="text-4xl font-black lg:text-5xl">{t('nothingCompare')}</h1>
+          <h1 className="text-4xl font-black lg:text-5xl">{t('nothingToCompare')}</h1>
           <p className="text-lg">{t('helpingText')}</p>
-          <NextIntlClientProvider locale={locale} messages={{ NotFound: messages.NotFound ?? {} }}>
-            <SearchForm />
-          </NextIntlClientProvider>
+          <SearchForm />
         </div>
       </div>
     );
@@ -135,12 +132,12 @@ export default async function Compare({
   return (
     <>
       <h1 className="pb-8 text-4xl font-black lg:text-5xl">
-        {t('comparingQuantity', { quantity: products.length })}
+        {t('heading', { quantity: products.length })}
       </h1>
 
       <div className="-mx-6 overflow-auto overscroll-x-contain px-4 sm:-mx-10 sm:px-10 lg:-mx-12 lg:px-12">
         <table className="mx-auto w-full max-w-full table-fixed text-base md:w-fit">
-          <caption className="sr-only">{t('productComparison')}</caption>
+          <caption className="sr-only">{t('Table.caption')}</caption>
 
           <colgroup>
             <col className="w-80" span={products.length} />
@@ -160,7 +157,7 @@ export default async function Compare({
                   return (
                     <td className="px-4" key={product.entityId}>
                       <Link aria-label={product.name} href={product.path}>
-                        <BcImage
+                        <Image
                           alt={product.defaultImage.altText}
                           height={300}
                           src={product.defaultImage.url}
@@ -175,7 +172,7 @@ export default async function Compare({
                   <td className="px-4" key={product.entityId}>
                     <Link aria-label={product.name} href={product.path}>
                       <div className="flex aspect-square items-center justify-center bg-gray-200 text-gray-500">
-                        <p className="text-lg">{t('noImageText')}</p>
+                        <p className="text-lg">{t('Table.noImage')}</p>
                       </div>
                     </Link>
                   </td>
@@ -221,7 +218,7 @@ export default async function Compare({
                           <>
                             {product.prices.retailPrice?.value !== undefined && (
                               <>
-                                MSRP:{' '}
+                                {t('Table.Prices.msrp')}:{' '}
                                 <span className="line-through">
                                   {format.number(product.prices.retailPrice.value, {
                                     style: 'currency',
@@ -234,7 +231,7 @@ export default async function Compare({
                             {product.prices.salePrice?.value !== undefined &&
                             product.prices.basePrice?.value !== undefined ? (
                               <>
-                                Was:{' '}
+                                {t('Table.Prices.was')}:{' '}
                                 <span className="line-through">
                                   {format.number(product.prices.basePrice.value, {
                                     style: 'currency',
@@ -243,7 +240,7 @@ export default async function Compare({
                                 </span>
                                 <br />
                                 <>
-                                  Now:{' '}
+                                  {t('Table.Prices.now')}:{' '}
                                   {format.number(product.prices.price.value, {
                                     style: 'currency',
                                     currency: product.prices.price.currencyCode,
@@ -274,7 +271,7 @@ export default async function Compare({
                   return (
                     <td className="border-b px-4 pb-12" key={product.entityId}>
                       <Button aria-label={product.name} asChild className="hover:text-white">
-                        <Link href={product.path}>{t('chooseOptions')}</Link>
+                        <Link href={product.path}>{t('Table.viewOptions')}</Link>
                       </Button>
                     </td>
                   );
@@ -282,12 +279,7 @@ export default async function Compare({
 
                 return (
                   <td className="border-b px-4 pb-12" key={product.entityId}>
-                    <NextIntlClientProvider
-                      locale={locale}
-                      messages={{ AddToCart: messages.AddToCart ?? {} }}
-                    >
-                      <AddToCart data={product} />
-                    </NextIntlClientProvider>
+                    <AddToCart data={product} />
                   </td>
                 );
               })}
@@ -296,7 +288,7 @@ export default async function Compare({
           <tbody>
             <tr className="absolute mt-6">
               <th className="sticky start-0 top-0 m-0 ps-4 text-start" id="product-description">
-                {t('description')}
+                {t('Table.description')}
               </th>
             </tr>
             <tr>
@@ -311,7 +303,7 @@ export default async function Compare({
             </tr>
             <tr className="absolute mt-6">
               <th className="sticky start-0 top-0 m-0 ps-4 text-start" id="product-rating">
-                {t('rating')}
+                {t('Table.rating')}
               </th>
             </tr>
             <tr>
@@ -341,7 +333,7 @@ export default async function Compare({
             </tr>
             <tr className="absolute mt-6">
               <th className="sticky start-0 top-0 m-0 ps-4 text-start" id="product-availability">
-                {t('availability')}
+                {t('Table.availability')}
               </th>
             </tr>
             <tr>
@@ -361,7 +353,7 @@ export default async function Compare({
                   return (
                     <td className="border-b px-4 pb-24 pt-12" key={product.entityId}>
                       <Button aria-label={product.name} asChild className="hover:text-white">
-                        <Link href={product.path}>{t('chooseOptions')}</Link>
+                        <Link href={product.path}>{t('Table.viewOptions')}</Link>
                       </Button>
                     </td>
                   );
@@ -369,12 +361,7 @@ export default async function Compare({
 
                 return (
                   <td className="border-b px-4 pb-24 pt-12" key={product.entityId}>
-                    <NextIntlClientProvider
-                      locale={locale}
-                      messages={{ AddToCart: messages.AddToCart ?? {} }}
-                    >
-                      <AddToCart data={product} />
-                    </NextIntlClientProvider>
+                    <AddToCart data={product} />
                   </td>
                 );
               })}

@@ -2,8 +2,8 @@ import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
-import { NextIntlClientProvider, useMessages } from 'next-intl';
-import { unstable_setRequestLocale } from 'next-intl/server';
+import { NextIntlClientProvider } from 'next-intl';
+import { getMessages, setRequestLocale } from 'next-intl/server';
 import { PropsWithChildren } from 'react';
 
 import '../globals.css';
@@ -36,7 +36,11 @@ const RootLayoutMetadataQuery = graphql(`
   }
 `);
 
-export async function generateMetadata(): Promise<Metadata> {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { locale } = await params;
+
+  setRequestLocale(locale);
+
   const { data } = await client.fetch({
     document: RootLayoutMetadataQuery,
     fetchOptions: { next: { revalidate } },
@@ -51,6 +55,9 @@ export async function generateMetadata(): Promise<Metadata> {
       template: `%s - ${storeName}`,
       default: pageTitle || storeName,
     },
+    icons: {
+      icon: '/favicon.ico', // app/favicon.ico/route.ts
+    },
     description: metaDescription,
     keywords: metaKeywords ? metaKeywords.split(',') : null,
     other: {
@@ -60,29 +67,43 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export const fetchCache = 'default-cache';
+const VercelComponents = () => {
+  if (process.env.VERCEL !== '1') {
+    return null;
+  }
 
-interface RootLayoutProps extends PropsWithChildren {
-  params: { locale: string };
+  return (
+    <>
+      {process.env.DISABLE_VERCEL_ANALYTICS !== 'true' && <Analytics />}
+      {process.env.DISABLE_VERCEL_SPEED_INSIGHTS !== 'true' && <SpeedInsights />}
+    </>
+  );
+};
+
+interface Props extends PropsWithChildren {
+  params: Promise<{ locale: string }>;
 }
 
-export default function RootLayout({ children, params: { locale } }: RootLayoutProps) {
-  // need to call this method everywhere where static rendering is enabled
-  // https://next-intl-docs.vercel.app/docs/getting-started/app-router#add-unstable_setrequestlocale-to-all-layouts-and-pages
-  unstable_setRequestLocale(locale);
+export default async function RootLayout({ params, children }: Props) {
+  const { locale } = await params;
 
-  const messages = useMessages();
+  // need to call this method everywhere where static rendering is enabled
+  // https://next-intl-docs.vercel.app/docs/getting-started/app-router#add-setRequestLocale-to-all-layouts-and-pages
+  setRequestLocale(locale);
+
+  const messages = await getMessages();
 
   return (
     <html className={`${inter.variable} font-sans`} lang={locale}>
       <body className="flex h-screen min-w-[375px] flex-col">
         <Notifications />
-        <NextIntlClientProvider locale={locale} messages={{ Providers: messages.Providers ?? {} }}>
+        <NextIntlClientProvider locale={locale} messages={messages}>
           <Providers>{children}</Providers>
         </NextIntlClientProvider>
-        <Analytics />
-        <SpeedInsights />
+        <VercelComponents />
       </body>
     </html>
   );
 }
+
+export const fetchCache = 'default-cache';

@@ -5,7 +5,7 @@ import { getChannelIdFromLocale } from '~/channels.config';
 import { client } from '~/client';
 import { graphql, VariablesOf } from '~/client/graphql';
 import { revalidate as revalidateTarget } from '~/client/revalidate-target';
-import { locales } from '~/i18n';
+import { locales } from '~/i18n/routing';
 
 import BrandPage from '../page';
 
@@ -27,9 +27,9 @@ const BrandsQuery = graphql(`
   }
 `);
 
-type BrandsQueryVariables = VariablesOf<typeof BrandsQuery>;
+type Variables = VariablesOf<typeof BrandsQuery>;
 
-const getBrands = cache(async (variables: BrandsQueryVariables = {}) => {
+const getBrands = cache(async (variables: Variables = {}) => {
   const response = await client.fetch({
     document: BrandsQuery,
     variables,

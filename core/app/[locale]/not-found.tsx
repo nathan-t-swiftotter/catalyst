@@ -1,27 +1,22 @@
 import { removeEdgesAndNodes } from '@bigcommerce/catalyst-client';
 import { ShoppingCart } from 'lucide-react';
-import { NextIntlClientProvider } from 'next-intl';
-import { getLocale, getMessages, getTranslations } from 'next-intl/server';
+import { getTranslations } from 'next-intl/server';
+import { Suspense } from 'react';
 
 import { client } from '~/client';
 import { graphql } from '~/client/graphql';
 import { revalidate } from '~/client/revalidate-target';
-import { Footer, FooterFragment } from '~/components/footer/footer';
-import { Header, HeaderFragment } from '~/components/header';
+import { Footer } from '~/components/footer/footer';
+import { Header, HeaderSkeleton } from '~/components/header';
 import { CartLink } from '~/components/header/cart';
-import { ProductCard, ProductCardFragment } from '~/components/product-card';
+import { ProductCardFragment } from '~/components/product-card/fragment';
+import { ProductCardCarousel } from '~/components/product-card-carousel';
 import { SearchForm } from '~/components/search-form';
-
-export const metadata = {
-  title: 'Not Found',
-};
 
 const NotFoundQuery = graphql(
   `
     query NotFoundQuery {
       site {
-        ...HeaderFragment
-        ...FooterFragment
         featuredProducts(first: 4) {
           edges {
             node {
@@ -32,13 +27,12 @@ const NotFoundQuery = graphql(
       }
     }
   `,
-  [HeaderFragment, FooterFragment, ProductCardFragment],
+  [ProductCardFragment],
 );
 
 export default async function NotFound() {
-  const locale = await getLocale();
   const t = await getTranslations('NotFound');
-  const messages = await getMessages({ locale });
+  const ct = await getTranslations('Components.Header.MiniCart');
 
   const { data } = await client.fetch({
     document: NotFoundQuery,
@@ -49,42 +43,33 @@ export default async function NotFound() {
 
   return (
     <>
-      <Header
-        cart={
-          <CartLink>
-            <ShoppingCart aria-label="cart" />
-          </CartLink>
-        }
-        data={data.site}
-      />
+      <Suspense fallback={<HeaderSkeleton />}>
+        <Header
+          cart={
+            <CartLink>
+              <ShoppingCart aria-label={ct('cart')} />
+            </CartLink>
+          }
+        />
+      </Suspense>
 
       <main className="mx-auto mb-10 max-w-[835px] space-y-8 px-4 sm:px-10 lg:px-0">
         <div className="flex flex-col gap-8 px-0 py-16">
           <h2 className="text-4xl font-black lg:text-5xl">{t('heading')}</h2>
           <p className="text-lg">{t('message')}</p>
         </div>
-        <NextIntlClientProvider locale={locale} messages={{ NotFound: messages.NotFound ?? {} }}>
-          <SearchForm />
-        </NextIntlClientProvider>
-        {featuredProducts.length ? (
-          <section>
-            <h3 className="mb-8 text-3xl font-black lg:text-4xl">{t('featuredProducts')}</h3>
-            <div className="grid grid-cols-2 gap-x-8 gap-y-8 md:grid-cols-4">
-              {featuredProducts.map((product) => (
-                <NextIntlClientProvider
-                  key={product.entityId}
-                  locale={locale}
-                  messages={{ Product: messages.Product ?? {} }}
-                >
-                  <ProductCard product={product} showCart={false} showCompare={false} />
-                </NextIntlClientProvider>
-              ))}
-            </div>
-          </section>
-        ) : null}
+        <SearchForm />
+        <ProductCardCarousel
+          products={featuredProducts}
+          showCart={false}
+          showCompare={false}
+          title={t('Carousel.featuredProducts')}
+        />
       </main>
 
-      <Footer data={data.site} />
+      <Suspense>
+        <Footer />
+      </Suspense>
     </>
   );
 }

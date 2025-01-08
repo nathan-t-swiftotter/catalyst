@@ -1,12 +1,10 @@
 import { removeEdgesAndNodes } from '@bigcommerce/catalyst-client';
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { NextIntlClientProvider } from 'next-intl';
-import { getMessages, getTranslations, unstable_setRequestLocale } from 'next-intl/server';
+import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Suspense } from 'react';
 
 import { Breadcrumbs } from '~/components/breadcrumbs';
-import { LocaleType } from '~/i18n';
 
 import { Description } from './_components/description';
 import { Details } from './_components/details';
@@ -17,22 +15,34 @@ import { Reviews } from './_components/reviews';
 import { Warranty } from './_components/warranty';
 import { getProduct } from './page-data';
 
-interface ProductPageProps {
-  params: { slug: string; locale: LocaleType };
-  searchParams: Record<string, string | string[] | undefined>;
+interface Props {
+  params: Promise<{ slug: string; locale: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
-export async function generateMetadata({
-  params,
-  searchParams,
-}: ProductPageProps): Promise<Metadata> {
+function getOptionValueIds({ searchParams }: { searchParams: Awaited<Props['searchParams']> }) {
+  const { slug, ...options } = searchParams;
+
+  return Object.keys(options)
+    .map((option) => ({
+      optionEntityId: Number(option),
+      valueEntityId: Number(searchParams[option]),
+    }))
+    .filter(
+      (option) => !Number.isNaN(option.optionEntityId) && !Number.isNaN(option.valueEntityId),
+    );
+}
+
+export async function generateMetadata(props: Props): Promise<Metadata> {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const productId = Number(params.slug);
   const optionValueIds = getOptionValueIds({ searchParams });
 
   const product = await getProduct({
     entityId: productId,
     optionValueIds,
-    useDefaultOptionSelections: optionValueIds.length === 0 ? true : undefined,
+    useDefaultOptionSelections: true,
   });
 
   if (!product) {
@@ -59,22 +69,24 @@ export async function generateMetadata({
   };
 }
 
-export default async function Product({ params, searchParams }: ProductPageProps) {
-  const { locale } = params;
+export default async function Product(props: Props) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
 
-  unstable_setRequestLocale(locale);
+  const { locale, slug } = params;
 
-  const t = await getTranslations({ locale, namespace: 'Product' });
-  const messages = await getMessages({ locale });
+  setRequestLocale(locale);
 
-  const productId = Number(params.slug);
+  const t = await getTranslations('Product');
+
+  const productId = Number(slug);
 
   const optionValueIds = getOptionValueIds({ searchParams });
 
   const product = await getProduct({
     entityId: productId,
     optionValueIds,
-    useDefaultOptionSelections: optionValueIds.length === 0 ? true : undefined,
+    useDefaultOptionSelections: true,
   });
 
   if (!product) {
@@ -88,20 +100,15 @@ export default async function Product({ params, searchParams }: ProductPageProps
       {category && <Breadcrumbs category={category} />}
 
       <div className="mb-12 mt-4 lg:grid lg:grid-cols-2 lg:gap-8">
-        <NextIntlClientProvider
-          locale={locale}
-          messages={{ Product: messages.Product ?? {}, AddToCart: messages.AddToCart ?? {} }}
-        >
-          <Gallery noImageText={t('noGalleryText')} product={product} />
-          <Details product={product} />
-          <div className="lg:col-span-2">
-            <Description product={product} />
-            <Warranty product={product} />
-            <Suspense fallback={t('loading')}>
-              <Reviews productId={product.entityId} />
-            </Suspense>
-          </div>
-        </NextIntlClientProvider>
+        <Gallery product={product} />
+        <Details product={product} />
+        <div className="lg:col-span-2">
+          <Description product={product} />
+          <Warranty product={product} />
+          <Suspense fallback={t('loading')}>
+            <Reviews productId={product.entityId} />
+          </Suspense>
+        </div>
       </div>
 
       <Suspense fallback={t('loading')}>
@@ -111,19 +118,6 @@ export default async function Product({ params, searchParams }: ProductPageProps
       <ProductViewed product={product} />
     </>
   );
-}
-
-function getOptionValueIds({ searchParams }: { searchParams: ProductPageProps['searchParams'] }) {
-  const { slug, ...options } = searchParams;
-
-  return Object.keys(options)
-    .map((option) => ({
-      optionEntityId: Number(option),
-      valueEntityId: Number(searchParams[option]),
-    }))
-    .filter(
-      (option) => !Number.isNaN(option.optionEntityId) && !Number.isNaN(option.valueEntityId),
-    );
 }
 
 export const runtime = 'edge';

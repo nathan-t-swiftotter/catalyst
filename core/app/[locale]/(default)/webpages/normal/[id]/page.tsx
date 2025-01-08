@@ -1,49 +1,17 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { cache } from 'react';
 
-import { client } from '~/client';
-import { graphql } from '~/client/graphql';
-import { revalidate } from '~/client/revalidate-target';
+import { getWebpageData } from './page-data';
 
 interface Props {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
-const NormalPageQuery = graphql(`
-  query NormalPage($id: ID!) {
-    node(id: $id) {
-      ... on NormalPage {
-        __typename
-        name
-        htmlBody
-        entityId
-        seo {
-          pageTitle
-          metaDescription
-          metaKeywords
-        }
-      }
-    }
-  }
-`);
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { id } = await params;
 
-const getWebpageData = cache(async (variables: { id: string }) => {
-  const { data } = await client.fetch({
-    document: NormalPageQuery,
-    variables,
-    fetchOptions: { next: { revalidate } },
-  });
-
-  if (data.node?.__typename !== 'NormalPage') {
-    return null;
-  }
-
-  return data.node;
-});
-
-export async function generateMetadata({ params: { id } }: Props): Promise<Metadata> {
-  const webpage = await getWebpageData({ id });
+  const data = await getWebpageData({ id: decodeURIComponent(id) });
+  const webpage = data.node?.__typename === 'NormalPage' ? data.node : null;
 
   if (!webpage) {
     return {};
@@ -58,8 +26,11 @@ export async function generateMetadata({ params: { id } }: Props): Promise<Metad
   };
 }
 
-export default async function WebPage({ params: { id } }: Props) {
-  const webpage = await getWebpageData({ id });
+export default async function WebPage({ params }: Props) {
+  const { id } = await params;
+
+  const data = await getWebpageData({ id: decodeURIComponent(id) });
+  const webpage = data.node?.__typename === 'NormalPage' ? data.node : null;
 
   if (!webpage) {
     notFound();

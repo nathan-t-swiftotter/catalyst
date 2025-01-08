@@ -1,10 +1,11 @@
 'use client';
 
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useTransition } from 'react';
 
 import { Select } from '~/components/ui/form';
+import { usePathname, useRouter } from '~/i18n/routing';
 
 export function SortBy() {
   const router = useRouter();
@@ -19,6 +20,8 @@ export function SortBy() {
     const params = new URLSearchParams(searchParams);
 
     params.set('sort', sortValue);
+    params.delete('before');
+    params.delete('after');
 
     startTransition(() => {
       router.push(`${pathname}?${params.toString()}`);

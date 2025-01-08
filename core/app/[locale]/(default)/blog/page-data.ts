@@ -16,7 +16,7 @@ interface Pagination {
 export const getBlogPosts = cache(
   async ({ tagId, limit = 9, before, after, locale }: BlogPostsFiltersInput & Pagination) => {
     let page = 1;
-    
+
     if (before) {
       page = parseInt(before) - 1;
     }

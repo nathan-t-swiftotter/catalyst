@@ -1,37 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 import { config } from 'dotenv';
-import { CoverageReportOptions } from 'monocart-reporter';
 
 config();
-
-const coverageReportOptions: CoverageReportOptions = {
-  name: 'Catalyst Code Coverage Report',
-
-  entryFilter: (entry) => {
-    return entry.url.includes('next/static/chunks') || entry.url.includes('next/server/app');
-  },
-
-  sourceFilter: (sourcePath) => {
-    return (
-      sourcePath.startsWith('bigcommerce/catalyst-core') &&
-      (sourcePath.endsWith('.ts') || sourcePath.endsWith('.tsx'))
-    );
-  },
-
-  sourcePath: (fileSource) => {
-    const list = ['core/'];
-
-    // eslint-disable-next-line no-restricted-syntax
-    for (const pre of list) {
-      if (fileSource.startsWith(pre)) {
-        return fileSource.slice(pre.length);
-      }
-    }
-
-    return fileSource;
-  },
-  reports: ['v8'],
-};
 
 export default defineConfig({
   testDir: './tests',
@@ -40,19 +10,7 @@ export default defineConfig({
       maxDiffPixelRatio: 0.02,
     },
   },
-  fullyParallel: !!process.env.CI,
-  reporter: process.env.CI
-    ? [['list'], ['monocart-reporter']]
-    : [
-        ['list'],
-        [
-          'monocart-reporter',
-          {
-            coverage: coverageReportOptions,
-          },
-        ],
-      ],
-  globalTeardown: './tests/global-teardown.js',
+  reporter: [['list'], ['html']],
   use: {
     baseURL: process.env.PLAYWRIGHT_TEST_BASE_URL,
     screenshot: 'only-on-failure',
@@ -66,7 +24,15 @@ export default defineConfig({
   projects: [
     {
       name: 'tests-chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: {
+        ...devices['Desktop Chrome'],
+        launchOptions: {
+          // When redirected to checkout, BigCommerce blocks preflight requests from a HeadlessChrome user agent.
+          // We need to disable web security to allow the preflight request to go through.
+          args: ['--disable-web-security'],
+        },
+      },
     },
   ],
+  retries: 1,
 });

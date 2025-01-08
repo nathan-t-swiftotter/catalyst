@@ -1,23 +1,13 @@
 import { removeEdgesAndNodes } from '@bigcommerce/catalyst-client';
-import { NextIntlClientProvider } from 'next-intl';
-import { getMessages, getTranslations, unstable_setRequestLocale } from 'next-intl/server';
+import { getTranslations, setRequestLocale } from 'next-intl/server';
 
-import { getSessionCustomerId } from '~/auth';
+import { getSessionCustomerAccessToken } from '~/auth';
 import { client } from '~/client';
 import { graphql } from '~/client/graphql';
 import { revalidate } from '~/client/revalidate-target';
-import { Hero } from '~/components/hero';
-import {
-  ProductCardCarousel,
-  ProductCardCarouselFragment,
-} from '~/components/product-card-carousel';
-import { LocaleType } from '~/i18n';
-
-interface Props {
-  params: {
-    locale: LocaleType;
-  };
-}
+import { ProductCardCarousel } from '~/components/product-card-carousel';
+import { ProductCardCarouselFragment } from '~/components/product-card-carousel/fragment';
+import { Slideshow } from '~/components/slideshow';
 
 const HomePageQuery = graphql(
   `
@@ -43,18 +33,22 @@ const HomePageQuery = graphql(
   [ProductCardCarouselFragment],
 );
 
-export default async function Home({ params: { locale } }: Props) {
-  unstable_setRequestLocale(locale);
+interface Props {
+  params: Promise<{ locale: string }>;
+}
 
-  const customerId = await getSessionCustomerId();
+export default async function Home({ params }: Props) {
+  const { locale } = await params;
 
-  const t = await getTranslations({ locale, namespace: 'Home' });
-  const messages = await getMessages({ locale });
+  setRequestLocale(locale);
+
+  const t = await getTranslations('Home');
+  const customerAccessToken = await getSessionCustomerAccessToken();
 
   const { data } = await client.fetch({
     document: HomePageQuery,
-    customerId,
-    fetchOptions: customerId ? { cache: 'no-store' } : { next: { revalidate } },
+    customerAccessToken,
+    fetchOptions: customerAccessToken ? { cache: 'no-store' } : { next: { revalidate } },
   });
 
   const featuredProducts = removeEdgesAndNodes(data.site.featuredProducts);
@@ -62,23 +56,21 @@ export default async function Home({ params: { locale } }: Props) {
 
   return (
     <>
-      <Hero />
+      <Slideshow />
 
       <div className="my-10">
-        <NextIntlClientProvider locale={locale} messages={{ Product: messages.Product ?? {} }}>
-          <ProductCardCarousel
-            products={featuredProducts}
-            showCart={false}
-            showCompare={false}
-            title={t('Carousel.featuredProducts')}
-          />
-          <ProductCardCarousel
-            products={newestProducts}
-            showCart={false}
-            showCompare={false}
-            title={t('Carousel.newestProducts')}
-          />
-        </NextIntlClientProvider>
+        <ProductCardCarousel
+          products={featuredProducts}
+          showCart={false}
+          showCompare={false}
+          title={t('Carousel.featuredProducts')}
+        />
+        <ProductCardCarousel
+          products={newestProducts}
+          showCart={false}
+          showCompare={false}
+          title={t('Carousel.newestProducts')}
+        />
       </div>
     </>
   );

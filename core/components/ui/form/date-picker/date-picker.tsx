@@ -3,7 +3,7 @@ import { CalendarIcon, ChevronLeftIcon, ChevronRightIcon } from 'lucide-react';
 import {
   ComponentPropsWithoutRef,
   ComponentPropsWithRef,
-  ElementRef,
+  ComponentRef,
   forwardRef,
   useState,
 } from 'react';
@@ -52,7 +52,7 @@ interface Props extends Omit<ComponentPropsWithRef<'input'>, 'defaultValue' | 'o
   disabledDays?: DayPickerSingleProps['disabled'];
 }
 
-const DatePicker = forwardRef<ElementRef<'input'>, Props>(
+const DatePicker = forwardRef<ComponentRef<'input'>, Props>(
   (
     {
       defaultValue,
@@ -80,7 +80,7 @@ const DatePicker = forwardRef<ElementRef<'input'>, Props>(
             error={error}
             icon={<CalendarIcon />}
             placeholder={placeholder}
-            readOnly={true}
+            readOnly={!required}
             ref={ref}
             required={required}
             type="text"

@@ -27,6 +27,27 @@ const config = {
             name: 'next/link',
             message: "Please import 'Link' from '~/components/Link' instead.",
           },
+          {
+            name: 'next/image',
+            importNames: ['default'],
+            message:
+              "Please import 'Image' from '~/components/image' instead. This component handles CDN and static image optimization.",
+          },
+          {
+            name: '~/i18n/routing',
+            importNames: ['Link'],
+            message: "Please import 'Link' from '~/components/Link' instead.",
+          },
+          {
+            name: 'next/router',
+            importNames: ['useRouter'],
+            message: 'Please import from `~/i18n/routing` instead.',
+          },
+          {
+            name: 'next/navigation',
+            importNames: ['redirect', 'permanentRedirect', 'useRouter', 'usePathname'],
+            message: 'Please import from `~/i18n/routing` instead.',
+          },
         ],
       },
     ],
@@ -37,7 +58,12 @@ const config = {
       },
     ],
   },
-  ignorePatterns: ['client/generated/**/*.ts', 'playwright-report/**', 'test-results/**', '**/google_analytics4.js'],
+  ignorePatterns: [
+    'client/generated/**/*.ts',
+    'playwright-report/**',
+    'test-results/**',
+    '**/google_analytics4.js',
+  ],
 };
 
 module.exports = config;

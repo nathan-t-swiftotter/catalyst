@@ -1,53 +1,18 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { NextIntlClientProvider } from 'next-intl';
-import { getMessages } from 'next-intl/server';
-import { cache } from 'react';
 
-import { client } from '~/client';
-import { graphql } from '~/client/graphql';
-import { revalidate } from '~/client/revalidate-target';
+import { bypassReCaptcha } from '~/lib/bypass-recaptcha';
 
 import { ContactUs } from './contact-us';
-import { ContactUsFragment } from './contact-us/fragment';
+import { getWebpageData } from './page-data';
 
 interface Props {
-  params: { id: string; locale: string };
+  params: Promise<{ id: string }>;
 }
 
-const WebPageQuery = graphql(
-  `
-    query WebPage($id: ID!) {
-      ...ContactUsFragment
-      node(id: $id) {
-        __typename
-        ... on ContactPage {
-          name
-          htmlBody
-          seo {
-            pageTitle
-            metaKeywords
-            metaDescription
-          }
-        }
-      }
-    }
-  `,
-  [ContactUsFragment],
-);
-
-const getWebpageData = cache(async (variables: { id: string }) => {
-  const { data } = await client.fetch({
-    document: WebPageQuery,
-    variables,
-    fetchOptions: { next: { revalidate } },
-  });
-
-  return data;
-});
-
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const data = await getWebpageData({ id: decodeURIComponent(params.id) });
+  const { id } = await params;
+  const data = await getWebpageData({ id: decodeURIComponent(id) });
   const webpage = data.node?.__typename === 'ContactPage' ? data.node : null;
 
   if (!webpage) {
@@ -63,7 +28,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default async function WebPage({ params: { locale, id } }: Props) {
+export default async function WebPage({ params }: Props) {
+  const { id } = await params;
+
   const data = await getWebpageData({ id: decodeURIComponent(id) });
   const webpage = data.node?.__typename === 'ContactPage' ? data.node : null;
 
@@ -71,9 +38,8 @@ export default async function WebPage({ params: { locale, id } }: Props) {
     notFound();
   }
 
-  const messages = await getMessages({ locale });
-
   const { name, htmlBody } = webpage;
+  const recaptchaSettings = await bypassReCaptcha(data.site.settings?.reCaptcha);
 
   return (
     <>
@@ -82,9 +48,7 @@ export default async function WebPage({ params: { locale, id } }: Props) {
         <div dangerouslySetInnerHTML={{ __html: htmlBody }} />
       </div>
 
-      <NextIntlClientProvider locale={locale} messages={{ AboutUs: messages.AboutUs ?? {} }}>
-        <ContactUs data={data} />
-      </NextIntlClientProvider>
+      <ContactUs node={webpage} reCaptchaSettings={recaptchaSettings} />
     </>
   );
 }

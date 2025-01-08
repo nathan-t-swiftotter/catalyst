@@ -1,15 +1,12 @@
 import { removeEdgesAndNodes } from '@bigcommerce/catalyst-client';
-import { NextIntlClientProvider } from 'next-intl';
-import { getLocale, getMessages, getTranslations } from 'next-intl/server';
+import { getTranslations } from 'next-intl/server';
 
-import { getSessionCustomerId } from '~/auth';
+import { getSessionCustomerAccessToken } from '~/auth';
 import { client } from '~/client';
 import { graphql } from '~/client/graphql';
 import { revalidate } from '~/client/revalidate-target';
-import {
-  ProductCardCarousel,
-  ProductCardCarouselFragment,
-} from '~/components/product-card-carousel';
+import { ProductCardCarousel } from '~/components/product-card-carousel';
+import { ProductCardCarouselFragment } from '~/components/product-card-carousel/fragment';
 
 const RelatedProductsQuery = graphql(
   `
@@ -35,17 +32,14 @@ interface Props {
 }
 
 export const RelatedProducts = async ({ productId }: Props) => {
-  const customerId = await getSessionCustomerId();
-
-  const t = await getTranslations('Product');
-  const locale = await getLocale();
-  const messages = await getMessages({ locale });
+  const t = await getTranslations('Product.Carousel');
+  const customerAccessToken = await getSessionCustomerAccessToken();
 
   const { data } = await client.fetch({
     document: RelatedProductsQuery,
     variables: { entityId: productId },
-    customerId,
-    fetchOptions: customerId ? { cache: 'no-store' } : { next: { revalidate } },
+    customerAccessToken,
+    fetchOptions: customerAccessToken ? { cache: 'no-store' } : { next: { revalidate } },
   });
 
   const product = data.site.product;
@@ -57,13 +51,11 @@ export const RelatedProducts = async ({ productId }: Props) => {
   const relatedProducts = removeEdgesAndNodes(product.relatedProducts);
 
   return (
-    <NextIntlClientProvider locale={locale} messages={{ Product: messages.Product ?? {} }}>
-      <ProductCardCarousel
-        products={relatedProducts}
-        showCart={false}
-        showCompare={false}
-        title={t('carouselTitle')}
-      />
-    </NextIntlClientProvider>
+    <ProductCardCarousel
+      products={relatedProducts}
+      showCart={false}
+      showCompare={false}
+      title={t('relatedProducts')}
+    />
   );
 };

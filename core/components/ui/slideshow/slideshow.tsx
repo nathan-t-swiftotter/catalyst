@@ -1,8 +1,10 @@
 import useEmblaCarousel from 'embla-carousel-react';
 import { ArrowLeft, ArrowRight, Pause, Play } from 'lucide-react';
-import NextImage, { StaticImageData } from 'next/image';
+import { StaticImageData } from 'next/image';
+import { useTranslations } from 'next-intl';
 import { useEffect, useReducer, useState } from 'react';
 
+import { Image } from '~/components/image';
 import { cn } from '~/lib/utils';
 
 import { Button } from '../button';
@@ -13,7 +15,7 @@ interface Link {
 }
 
 interface Image {
-  alt: string;
+  altText: string;
   blurDataUrl?: string;
   src: string | StaticImageData;
 }
@@ -42,6 +44,7 @@ const Slideshow = ({ className, interval = 15_000, slides }: Props) => {
   const [visibilityState, setVisibilityState] = useState<
     DocumentVisibilityState | Omit<string, 'hidden' | 'visible'>
   >('');
+  const t = useTranslations('Components.Slideshow');
 
   useEffect(() => {
     const autoplay = setInterval(() => {
@@ -94,7 +97,7 @@ const Slideshow = ({ className, interval = 15_000, slides }: Props) => {
 
   return (
     <section
-      aria-label="Interactive slide show"
+      aria-label={t('slideshow')}
       aria-roledescription="carousel"
       className={cn('relative -mx-6 overflow-hidden sm:-mx-10 md:-mx-12 lg:mx-0', className)}
       onBlur={() => setIsHoverPaused(false)}
@@ -106,22 +109,21 @@ const Slideshow = ({ className, interval = 15_000, slides }: Props) => {
         <ul className="flex" id="slideshow-slides">
           {slides.map((slide, index) => (
             <li
-              aria-label={`${index + 1} of ${slides.length}`}
-              aria-roledescription="slide"
+              aria-label={t('slideNo', { n: index + 1, total: slides.length })}
+              aria-roledescription={t('slide')}
               className="min-w-0 shrink-0 grow-0 basis-full"
-              // @ts-expect-error https://github.com/DefinitelyTyped/DefinitelyTyped/pull/60822
-              inert={index === activeSlide - 1 ? null : 'true'}
+              inert={index === activeSlide - 1 ? undefined : true}
               key={index}
             >
               <div className="relative">
                 {slide.image && (
-                  <NextImage
-                    alt={slide.image.alt}
+                  <Image
+                    alt={slide.image.altText}
                     blurDataURL={slide.image.blurDataUrl}
                     className="absolute -z-10 object-cover"
                     fill
                     placeholder="blur"
-                    priority
+                    priority={index === 0}
                     sizes="(max-width: 1536px) 100vw, 1536px"
                     src={slide.image.src}
                   />
@@ -147,7 +149,7 @@ const Slideshow = ({ className, interval = 15_000, slides }: Props) => {
       </div>
       <div className="absolute bottom-12 start-12 flex items-center gap-4">
         <button
-          aria-label={isPaused ? 'Play slideshow' : 'Pause slideshow'}
+          aria-label={isPaused ? t('play') : t('pause')}
           className="inline-flex h-12 w-12 items-center justify-center focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20"
           onClick={() => {
             togglePaused();
@@ -157,18 +159,18 @@ const Slideshow = ({ className, interval = 15_000, slides }: Props) => {
         </button>
         <button
           aria-controls="slideshow-slides"
-          aria-label="Previous slide"
+          aria-label={t('previousSlide')}
           className="inline-flex h-12 w-12 items-center justify-center focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20"
           onClick={scrollPrev}
         >
           <ArrowLeft />
         </button>
         <span aria-atomic="false" aria-live={isPaused ? 'polite' : 'off'} className="font-semibold">
-          {activeSlide} of {slides.length}
+          {t('slideNo', { n: activeSlide, total: slides.length })}
         </span>
         <button
           aria-controls="slideshow-slides"
-          aria-label="Next slide"
+          aria-label={t('nextSlide')}
           className="inline-flex h-12 w-12 items-center justify-center focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20"
           onClick={scrollNext}
         >

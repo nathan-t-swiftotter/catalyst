@@ -1,11 +1,13 @@
 'use client';
 
 import { ShoppingCart } from 'lucide-react';
-import { useLocale } from 'next-intl';
-import { useEffect, useState } from 'react';
+import { useLocale, useTranslations } from 'next-intl';
+import { useEffect } from 'react';
 import { z } from 'zod';
 
 import { Badge } from '~/components/ui/badge';
+
+import { useCart } from './cart-provider';
 
 const CartQuantityResponseSchema = z.object({
   count: z.number(),
@@ -15,36 +17,38 @@ interface CartIconProps {
   count?: number;
 }
 
-export const CartIcon = ({ count }: CartIconProps) => {
-  const [fetchedCount, setFetchedCount] = useState<number | null>();
-  const computedCount = count ?? fetchedCount;
+export const CartIcon = ({ count: serverCount }: CartIconProps) => {
+  const { count, setCount } = useCart();
   const locale = useLocale();
+  const t = useTranslations('Components.Header.MiniCart');
 
   useEffect(() => {
     async function fetchCartQuantity() {
       const response = await fetch(`/api/cart-quantity/?locale=${locale}`);
       const parsedData = CartQuantityResponseSchema.parse(await response.json());
 
-      setFetchedCount(parsedData.count);
+      setCount(parsedData.count);
     }
 
-    // When a page is rendered statically via the 'force-static' route config option, cookies().get() always returns undefined,
-    // which ultimately means that the `count` prop here will always be undefined on initial render, even if there actually is
-    // a populated cart. Thus, we perform a client-side check in this case.
-    if (count === undefined) {
+    if (serverCount !== undefined) {
+      setCount(serverCount);
+    } else {
+      // When a page is rendered statically via the 'force-static' route config option, cookies().get() always returns undefined,
+      // which ultimately means that the `serverCount` here will always be undefined on initial render, even if there actually is
+      // a populated cart. Thus, we perform a client-side check in this case.
       void fetchCartQuantity();
     }
-  }, [count, locale]);
+  }, [serverCount, locale, setCount]);
 
-  if (!computedCount) {
-    return <ShoppingCart aria-label="cart" />;
+  if (!count) {
+    return <ShoppingCart aria-label={t('cart')} />;
   }
 
   return (
     <>
-      <span className="sr-only">Cart Items</span>
+      <span className="sr-only">{t('items')}</span>
       <ShoppingCart aria-hidden="true" />
-      <Badge>{computedCount}</Badge>
+      <Badge>{count}</Badge>
     </>
   );
 };

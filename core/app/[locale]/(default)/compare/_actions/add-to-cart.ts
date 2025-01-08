@@ -3,15 +3,19 @@
 import { revalidateTag } from 'next/cache';
 import { cookies } from 'next/headers';
 
-import { addCartLineItem } from '~/client/mutations/add-cart-line-item';
-import { createCart } from '~/client/mutations/create-cart';
+import {
+  addCartLineItem,
+  assertAddCartLineItemErrors,
+} from '~/client/mutations/add-cart-line-item';
+import { assertCreateCartErrors, createCart } from '~/client/mutations/create-cart';
 import { getCart } from '~/client/queries/get-cart';
 import { TAGS } from '~/client/tags';
 
 export const addToCart = async (data: FormData) => {
   const productEntityId = Number(data.get('product_id'));
 
-  const cartId = cookies().get('cartId')?.value;
+  const cookieStore = await cookies();
+  const cartId = cookieStore.get('cartId')?.value;
 
   let cart;
 
@@ -19,7 +23,7 @@ export const addToCart = async (data: FormData) => {
     cart = await getCart(cartId);
 
     if (cart) {
-      cart = await addCartLineItem(cart.entityId, {
+      const addCartLineItemResponse = await addCartLineItem(cart.entityId, {
         lineItems: [
           {
             productEntityId,
@@ -27,6 +31,10 @@ export const addToCart = async (data: FormData) => {
           },
         ],
       });
+
+      assertAddCartLineItemErrors(addCartLineItemResponse);
+
+      cart = addCartLineItemResponse.data.cart.addCartLineItems?.cart;
 
       if (!cart?.entityId) {
         return { status: 'error', error: 'Failed to add product to cart.' };
@@ -37,13 +45,17 @@ export const addToCart = async (data: FormData) => {
       return { status: 'success', data: cart };
     }
 
-    cart = await createCart([{ productEntityId, quantity: 1 }]);
+    const createCartResponse = await createCart([{ productEntityId, quantity: 1 }]);
+
+    assertCreateCartErrors(createCartResponse);
+
+    cart = createCartResponse.data.cart.createCart?.cart;
 
     if (!cart?.entityId) {
       return { status: 'error', error: 'Failed to add product to cart.' };
     }
 
-    cookies().set({
+    cookieStore.set({
       name: 'cartId',
       value: cart.entityId,
       httpOnly: true,

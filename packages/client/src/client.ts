@@ -10,27 +10,45 @@ export const graphqlApiDomain: string =
 export const adminApiHostname: string =
   process.env.BIGCOMMERCE_ADMIN_API_HOST ?? 'api.bigcommerce.com';
 
-interface Config {
+interface Config<FetcherRequestInit extends RequestInit = RequestInit> {
   storeHash: string;
-  customerImpersonationToken: string;
+  storefrontToken: string;
   xAuthToken: string;
   channelId?: string;
   platform?: string;
   backendUserAgentExtensions?: string;
   logger?: boolean;
   getChannelId?: (defaultChannelId: string) => Promise<string> | string;
+  beforeRequest?: (
+    fetchOptions?: FetcherRequestInit,
+  ) => Promise<Partial<FetcherRequestInit> | undefined> | Partial<FetcherRequestInit> | undefined;
+}
+
+interface BigCommerceResponseError {
+  message: string;
+  locations: Array<{
+    line: number;
+    column: number;
+  }>;
+  path: string[];
 }
 
 interface BigCommerceResponse<T> {
   data: T;
+  errors?: BigCommerceResponseError[];
 }
 
 class Client<FetcherRequestInit extends RequestInit = RequestInit> {
   private backendUserAgent: string;
   private readonly defaultChannelId: string;
   private getChannelId: (defaultChannelId: string) => Promise<string> | string;
+  private beforeRequest?: (
+    fetchOptions?: FetcherRequestInit,
+  ) => Promise<Partial<FetcherRequestInit> | undefined> | Partial<FetcherRequestInit> | undefined;
 
-  constructor(private config: Config) {
+  private trustedProxySecret = process.env.BIGCOMMERCE_TRUSTED_PROXY_SECRET;
+
+  constructor(private config: Config<FetcherRequestInit>) {
     if (!config.channelId) {
       throw new Error('Client configuration must include a channelId.');
     }
@@ -40,13 +58,14 @@ class Client<FetcherRequestInit extends RequestInit = RequestInit> {
     this.getChannelId = config.getChannelId
       ? config.getChannelId
       : (defaultChannelId) => defaultChannelId;
+    this.beforeRequest = config.beforeRequest;
   }
 
   // Overload for documents that require variables
   async fetch<TResult, TVariables extends Record<string, unknown>>(config: {
     document: DocumentDecoration<TResult, TVariables>;
     variables: TVariables;
-    customerId?: string;
+    customerAccessToken?: string;
     fetchOptions?: FetcherRequestInit;
     channelId?: string;
   }): Promise<BigCommerceResponse<TResult>>;
@@ -55,7 +74,7 @@ class Client<FetcherRequestInit extends RequestInit = RequestInit> {
   async fetch<TResult>(config: {
     document: DocumentDecoration<TResult, Record<string, never>>;
     variables?: undefined;
-    customerId?: string;
+    customerAccessToken?: string;
     fetchOptions?: FetcherRequestInit;
     channelId?: string;
   }): Promise<BigCommerceResponse<TResult>>;
@@ -63,36 +82,40 @@ class Client<FetcherRequestInit extends RequestInit = RequestInit> {
   async fetch<TResult, TVariables>({
     document,
     variables,
-    customerId,
+    customerAccessToken,
     fetchOptions = {} as FetcherRequestInit,
     channelId,
   }: {
     document: DocumentDecoration<TResult, TVariables>;
     variables?: TVariables;
-    customerId?: string;
+    customerAccessToken?: string;
     fetchOptions?: FetcherRequestInit;
     channelId?: string;
   }): Promise<BigCommerceResponse<TResult>> {
-    const { cache, headers = {}, ...rest } = fetchOptions;
+    const { headers = {}, ...rest } = fetchOptions;
     const query = normalizeQuery(document);
     const log = this.requestLogger(query);
 
     const graphqlUrl = await this.getGraphQLEndpoint(channelId);
+    const { headers: additionalFetchHeaders = {}, ...additionalFetchOptions } =
+      (await this.beforeRequest?.(fetchOptions)) ?? {};
 
     const response = await fetch(graphqlUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.config.customerImpersonationToken}`,
+        Authorization: `Bearer ${this.config.storefrontToken}`,
         'User-Agent': this.backendUserAgent,
-        ...(customerId && { 'X-Bc-Customer-Id': customerId }),
+        ...(customerAccessToken && { 'X-Bc-Customer-Access-Token': customerAccessToken }),
+        ...(this.trustedProxySecret && { 'X-BC-Trusted-Proxy-Secret': this.trustedProxySecret }),
+        ...additionalFetchHeaders,
         ...headers,
       },
       body: JSON.stringify({
         query,
         ...(variables && { variables }),
       }),
-      ...(cache && { cache }),
+      ...additionalFetchOptions,
       ...rest,
     });
 
@@ -135,6 +158,7 @@ class Client<FetcherRequestInit extends RequestInit = RequestInit> {
         Accept: 'application/xml',
         'Content-Type': 'application/xml',
         'User-Agent': this.backendUserAgent,
+        ...(this.trustedProxySecret && { 'X-BC-Trusted-Proxy-Secret': this.trustedProxySecret }),
       },
     });
 
@@ -180,6 +204,8 @@ class Client<FetcherRequestInit extends RequestInit = RequestInit> {
   }
 }
 
-export function createClient<FetcherRequestInit extends RequestInit = RequestInit>(config: Config) {
+export function createClient<FetcherRequestInit extends RequestInit = RequestInit>(
+  config: Config<FetcherRequestInit>,
+) {
   return new Client<FetcherRequestInit>(config);
 }

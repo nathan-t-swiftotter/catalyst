@@ -1,8 +1,7 @@
-import { NextIntlClientProvider } from 'next-intl';
-import { getFormatter, getLocale, getMessages } from 'next-intl/server';
+import { useFormatter } from 'next-intl';
 
 import { FragmentOf, graphql } from '~/client/graphql';
-import { BcImage } from '~/components/bc-image';
+import { Image } from '~/components/image';
 
 import { ItemQuantity } from './item-quantity';
 import { RemoveItem } from './remove-item';
@@ -13,7 +12,7 @@ const PhysicalItemFragment = graphql(`
     brand
     sku
     image {
-      url: urlTemplate
+      url: urlTemplate(lossy: true)
     }
     entityId
     quantity
@@ -71,7 +70,7 @@ const DigitalItemFragment = graphql(`
     brand
     sku
     image {
-      url: urlTemplate
+      url: urlTemplate(lossy: true)
     }
     entityId
     quantity
@@ -148,17 +147,15 @@ interface Props {
   currencyCode: string;
 }
 
-export const CartItem = async ({ currencyCode, product }: Props) => {
-  const locale = await getLocale();
-  const messages = await getMessages({ locale });
-  const format = await getFormatter({ locale });
+export const CartItem = ({ currencyCode, product }: Props) => {
+  const format = useFormatter();
 
   return (
     <li>
       <div className="flex gap-4 border-t border-t-gray-200 py-4 md:flex-row">
         <div className="w-24 flex-none md:w-[144px]">
           {product.image?.url ? (
-            <BcImage alt={product.name} height={144} src={product.image.url} width={144} />
+            <Image alt={product.name} height={144} src={product.image.url} width={144} />
           ) : (
             <div className="h-full w-full bg-gray-200" />
           )}
@@ -231,9 +228,7 @@ export const CartItem = async ({ currencyCode, product }: Props) => {
               )}
 
               <div className="hidden md:block">
-                <NextIntlClientProvider locale={locale} messages={{ Cart: messages.Cart ?? {} }}>
-                  <RemoveItem currency={currencyCode} product={product} />
-                </NextIntlClientProvider>
+                <RemoveItem currency={currencyCode} product={product} />
               </div>
             </div>
 
@@ -256,16 +251,12 @@ export const CartItem = async ({ currencyCode, product }: Props) => {
                 </p>
               </div>
 
-              <NextIntlClientProvider locale={locale} messages={{ Cart: messages.Cart ?? {} }}>
-                <ItemQuantity product={product} />
-              </NextIntlClientProvider>
+              <ItemQuantity product={product} />
             </div>
           </div>
 
           <div className="mt-4 md:hidden">
-            <NextIntlClientProvider locale={locale} messages={{ Cart: messages.Cart ?? {} }}>
-              <RemoveItem currency={currencyCode} product={product} />
-            </NextIntlClientProvider>
+            <RemoveItem currency={currencyCode} product={product} />
           </div>
         </div>
       </div>

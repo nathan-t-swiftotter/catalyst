@@ -1,14 +1,29 @@
-import { redirect } from 'next/navigation';
+import { setRequestLocale } from 'next-intl/server';
 import { PropsWithChildren } from 'react';
 
 import { auth } from '~/auth';
+import { redirect } from '~/i18n/routing';
 
-export default async function AccountLayout({ children }: PropsWithChildren) {
+import { TabNavigation } from './_components/tab-navigation';
+
+interface Props extends PropsWithChildren {
+  params: Promise<{ locale: string }>;
+}
+
+export default async function AccountLayout({ children, params }: Props) {
+  const { locale } = await params;
   const session = await auth();
 
+  setRequestLocale(locale);
+
   if (!session) {
-    redirect('/login');
+    redirect({ href: '/login', locale });
   }
 
-  return children;
+  return (
+    <>
+      <TabNavigation />
+      {children}
+    </>
+  );
 }

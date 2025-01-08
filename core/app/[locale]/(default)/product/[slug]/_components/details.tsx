@@ -1,11 +1,12 @@
 import { removeEdgesAndNodes } from '@bigcommerce/catalyst-client';
 import { useFormatter, useTranslations } from 'next-intl';
 
+import { PricingFragment } from '~/client/fragments/pricing';
 import { ProductItemFragment } from '~/client/fragments/product-item';
 import { FragmentOf, graphql } from '~/client/graphql';
-import { ProductForm } from '~/components/product-form';
-import { ProductFormFragment } from '~/components/product-form/fragment';
 
+import { ProductForm } from './product-form';
+import { ProductFormFragment } from './product-form/fragment';
 import { ProductSchema, ProductSchemaFragment } from './product-schema';
 import { ReviewSummary, ReviewSummaryFragment } from './review-summary';
 
@@ -42,32 +43,16 @@ export const DetailsFragment = graphql(
       brand {
         name
       }
-      prices {
-        priceRange {
-          min {
-            value
-          }
-          max {
-            value
-          }
-        }
-        retailPrice {
-          value
-        }
-        salePrice {
-          value
-        }
-        basePrice {
-          value
-        }
-        price {
-          value
-          currencyCode
-        }
-      }
+      ...PricingFragment
     }
   `,
-  [ReviewSummaryFragment, ProductSchemaFragment, ProductFormFragment, ProductItemFragment],
+  [
+    ReviewSummaryFragment,
+    ProductSchemaFragment,
+    ProductFormFragment,
+    ProductItemFragment,
+    PricingFragment,
+  ],
 );
 
 interface Props {
