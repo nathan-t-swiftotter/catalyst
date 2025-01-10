@@ -86,6 +86,7 @@
     "prettier-plugin-tailwindcss": "^0.6.9",
     "tailwindcss": "^3.4.16",
     "tailwindcss-animate": "1.0.7",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "wp-types": "^4.67.0"
   }
 }

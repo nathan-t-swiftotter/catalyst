@@ -33,10 +33,10 @@ export default async function Tag(props: Props) {
       </div>
 
       <Pagination
-        endCursor={blogPosts.posts.pageInfo.endCursor ?? undefined}
+        endCursor={blogPosts.posts.pageInfo.endCursor}
         hasNextPage={blogPosts.posts.pageInfo.hasNextPage}
         hasPreviousPage={blogPosts.posts.pageInfo.hasPreviousPage}
-        startCursor={blogPosts.posts.pageInfo.startCursor ?? undefined}
+        startCursor={blogPosts.posts.pageInfo.startCursor}
       />
     </div>
   );
